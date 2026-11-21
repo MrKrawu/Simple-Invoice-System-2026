@@ -1,26 +1,16 @@
 <?php
 	require('vendor/fpdf/fpdf.php');
 
-	$connect = mysqli_connect('localhost','root','');
-	mysqli_select_db($connect,'egm_simple_invoice');
+	require_once 'bootstrap.php';
+	require_once 'connection.php';
+	if (empty($_SESSION['user_id'])) { http_response_code(401); exit('Not logged in.'); }
+	$order_id = (int)($_GET['order_id'] ?? 0);
 
 	class PDF extends FPDF {
 		function Header(){
 
-			$connect = mysqli_connect('localhost','root','');
-			mysqli_select_db($connect,'egm_simple_invoice');
-
-			$sql_order="SELECT order_id,
-                      order_receiver_name,
-                      order_receiver_address,
-                      order_total_before_tax,
-                      order_total_tax,
-                      order_total_after_tax,
-                      order_created_at
-                      FROM tbl_orders WHERE order_id = '".$_GET["order_id"]."'";
-					  
-			$query_invoice = mysqli_query($connect, $sql_order);
-			$row = mysqli_fetch_array($query_invoice);
+			global $conn, $order_id;
+			$row = q_one($conn, "SELECT order_id, order_receiver_name, order_receiver_address, order_total_before_tax, order_total_tax, order_total_after_tax, order_created_at FROM tbl_orders WHERE order_id = ?", "i", [$order_id]);
 
 			$this->SetFont('Arial','B',30);
 
@@ -84,17 +74,10 @@
 	$pdf->SetFont('Arial','',10);
 	$pdf->SetDrawColor(0,0,0);
 
-	$sql_item="SELECT item_name,
-                      order_item_quantity,
-                      order_item_price,
-                      order_item_tax_amount,
-                      order_item_subtotal_amount,
-                      order_item_final_amount
-                      FROM invoice_order_item WHERE order_id = '".$_GET["order_id"]."'";
+	$items = q_rows($conn, "SELECT item_name, order_item_quantity, order_item_price, order_item_tax_amount, order_item_subtotal_amount, order_item_final_amount FROM invoice_order_item WHERE order_id = ?", "i", [$order_id]);
 
-	$query_item = mysqli_query($connect, $sql_item);		
-
-	while($data = mysqli_fetch_array($query_item)){
+	foreach($items as $data){
+		$data = array_values($data);
 
 		$cellWidth = 55;
 		$cellHeight = 5;
@@ -137,17 +120,8 @@
 		$pdf->Cell(30,($line * $cellHeight),$data[5],1,1);
 	}
 
-	$connect = mysqli_connect('localhost','root','');
-	mysqli_select_db($connect,'egm_simple_invoice');
-
-	$sql_order="SELECT order_total_before_tax,
-			  order_total_tax,
-			  order_total_after_tax,
-			  order_note
-			  FROM tbl_orders WHERE order_id = '".$_GET["order_id"]."'";
-
-	$query_invoice = mysqli_query($connect, $sql_order);
-	$row = mysqli_fetch_array($query_invoice);
+	$row = q_one($conn, "SELECT order_total_before_tax, order_total_tax, order_total_after_tax, order_note FROM tbl_orders WHERE order_id = ?", "i", [$order_id]);
+	if (!$row) { http_response_code(404); exit('Invoice not found.'); }
 
 	$pdf->SetFont('Arial','B',11);
 	$pdf->SetTextColor(7, 56, 99);

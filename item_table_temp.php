@@ -1,5 +1,6 @@
 <?php
-	session_start();
+	require_once 'bootstrap.php';
+	if (empty($_SESSION['user_id'])) { http_response_code(401); exit; }
 ?>
 
 	<table class="table table-bordered table-hover">
@@ -29,12 +30,12 @@
 
 			<tr>
 				<td><?php echo $i+1; ?></td>
-				<td><?php echo $row[0] ?></td>
-				<td><?php echo $row[1] ?></td>
-				<td><?php echo $row[2] ?></td>
-				<td><?php echo $row[3] ?></td>
-				<td><?php echo $row[4] ?></td>
-				<td><?php echo $row[5] ?></td>
+				<td><?php echo h($row[0] ?? '') ?></td>
+				<td><?php echo h($row[1] ?? '') ?></td>
+				<td><?php echo h($row[2] ?? '') ?></td>
+				<td><?php echo h($row[3] ?? '') ?></td>
+				<td><?php echo h($row[4] ?? '') ?></td>
+				<td><?php echo h($row[5] ?? '') ?></td>
 				<td width="5%">
 					<span class="btn btn-danger btn-xs" onclick="eliminateItem('<?php echo $i; ?>');">
 						<i class="fas fa-times"></i>

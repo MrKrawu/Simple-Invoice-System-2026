@@ -2,13 +2,8 @@
 
   //header.php
   
-  session_start();
-
-  if(!isset($_SESSION["user_email"]))
-  {
-    header('location: login.html');
-  }
-  
+  require_once __DIR__ . '/../bootstrap.php';
+  require_page();
 
 ?>
 <!DOCTYPE html>
@@ -16,6 +11,7 @@
 
 <head>
   <!--Let browser know website is optimized for mobile-->
+  <meta name="csrf-token" content="<?php echo h(csrf_token()); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Simple Invoice System</title>
@@ -74,7 +70,7 @@
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownBlog" data-toggle="dropdown"
               aria-haspopup="true" aria-expanded="false">
-              <span class="fas fa-user"></span> <?php echo $_SESSION['user_full_name']; ?>
+              <span class="fas fa-user"></span> <?php echo h($_SESSION['user_full_name']); ?>
             </a>
             <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownBlog">
               <a class="dropdown-item" href="account.php"> Settings</a>

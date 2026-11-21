@@ -1,99 +1,43 @@
 <?php
-    // Current user logged in action.
-    require_once "connection.php";
+// Aktionen des eingeloggten Benutzers (Profil, Passwort).
+require_once "bootstrap.php";
+require_once "connection.php";
+require_api();
 
-    session_start();
+$uid = (int)$_SESSION['user_id'];
+$action = $_POST['action'] ?? '';
 
-    $output = '';
+if ($action == "profile_fetch") {
+  $r = q_one($conn, "SELECT user_id, user_full_name, user_email, user_gender, user_status, user_role, user_created_at FROM tbl_users WHERE user_id = ?", "i", [$uid]);
+  echo json_encode([
+    'user_id' => $r['user_id'], 'user_full_name' => $r['user_full_name'], 'user_email' => $r['user_email'],
+    'user_gender' => $r['user_gender'], 'user_status' => $r['user_status'], 'user_role' => $r['user_role'],
+    'user_created_at' => $r['user_created_at'],
+  ]);
+}
 
-    if(isset($_POST["action"])){
+if ($action == "update_profile") {
+  $gender = in_array($_POST['gender'] ?? '', ['Male', 'Female'], true) ? $_POST['gender'] : null;
+  $name = trim((string)($_POST['full_name'] ?? ''));
+  if ($gender === null || $name === '') json_fail(400, 'Invalid input.');
+  if (q_ok($conn, "UPDATE tbl_users SET user_full_name = ?, user_gender = ? WHERE user_id = ?", "ssi", [$name, $gender, $uid])) {
+    $_SESSION['user_full_name'] = $name;
+    echo json_encode(['status' => 'success', 'message' => ' Your profile has been updated successfully.']);
+  } else {
+    json_fail(500, 'Update failed.');
+  }
+}
 
-        // Get current logged in user profile information.
-        if($_POST["action"] == "profile_fetch"){
-
-            $sql = "SELECT user_id,
-                            user_full_name,
-                            user_email,
-                            user_gender,
-                            user_status,
-                            user_role,
-                            user_created_at
-                            FROM tbl_users 
-                            WHERE user_id = '".$_SESSION["user_id"]."'";
-
-            $result = mysqli_query($conn, $sql);
-
-            $row = mysqli_fetch_row($result);
-
-            $output = array(
-                'user_id'             =>    $row[0],
-                'user_full_name'      =>    $row[1],
-                'user_email'          =>    $row[2],
-                'user_gender'         =>    $row[3],
-                'user_status'         =>    $row[4],
-                'user_role'           =>    $row[5],
-                'user_created_at'     =>    $row[6],
-            );
-
-            echo json_encode($output);
-        }
-
-        // Update current logged in user profile information.
-        if($_POST["action"] == "update_profile"){
-        
-            $sql = "UPDATE tbl_users SET user_full_name = '".$_POST["full_name"]."',
-                                    user_gender = '".$_POST["gender"]."'
-                                    WHERE user_id = '".$_SESSION["user_id"]."'";
-
-            if(mysqli_query($conn, $sql)){
-        
-                $_SESSION['user_full_name'] = $_POST["full_name"];
-
-                $output = array(
-                    'status'        => 'success',
-                    'message'       => ' Your profile has been updated successfully.',
-                );
-        
-            }
-
-            echo json_encode($output);
-
-        }
-
-        // Update current logged in user password
-        if($_POST["action"] == "update_password"){
-
-            $sql = "SELECT * FROM tbl_users WHERE user_password = '".sha1($_POST['current_password'])."' AND user_id = '".$_SESSION["user_id"]."'";
-            $result = mysqli_query($conn, $sql);
-            $checkrows = mysqli_num_rows($result);
-
-            if($checkrows > 0) {
-
-                $sql = "UPDATE tbl_users SET user_password = '".sha1($_POST['new_password'])."' WHERE user_id = '".$_SESSION["user_id"]."'";
-                $result = mysqli_query($conn, $sql);
-
-                if($result > 0)	{
-
-                    $output = array(
-                        'status'        => 'success',
-                        'message'       => ' Password updated successfully.'
-                    );
-
-                    echo json_encode($output);
-                }
-
-            } else {
-
-                $output = array(
-                    'error'          =>	'true'
-                );
-
-                echo json_encode($output);
-
-            }
-
-        }
-
+if ($action == "update_password") {
+  $user = q_one($conn, "SELECT user_password FROM tbl_users WHERE user_id = ?", "i", [$uid]);
+  $new = (string)($_POST['new_password'] ?? '');
+  if ($user && pw_verify((string)($_POST['current_password'] ?? ''), $user['user_password']) && strlen($new) >= 8) {
+    if (q_ok($conn, "UPDATE tbl_users SET user_password = ? WHERE user_id = ?", "si", [pw_hash($new), $uid])) {
+      echo json_encode(['status' => 'success', 'message' => ' Password updated successfully.']);
+    } else {
+      json_fail(500, 'Update failed.');
     }
-
-?>
+  } else {
+    echo json_encode(['error' => 'true']);
+  }
+}

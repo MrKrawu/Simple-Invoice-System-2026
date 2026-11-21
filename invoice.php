@@ -93,7 +93,7 @@
 
     order_id = "<?php 
     if(isset($_GET["order_id"])){
-      echo $_GET['order_id'];
+      echo (int)$_GET['order_id'];
     } ?>";
 
     if (order_id) {

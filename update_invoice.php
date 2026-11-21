@@ -146,7 +146,7 @@
 
   $(document).ready(function(){
 
-    order_id = "<?php echo $_GET['order_id']?>";
+    order_id = "<?php echo (int)($_GET['order_id'] ?? 0); ?>";
 
     $.ajax({
       type:"POST",

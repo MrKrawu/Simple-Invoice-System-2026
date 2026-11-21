@@ -1,42 +1,39 @@
 <?php
+require_once "bootstrap.php";
+require_once "connection.php";
 
-	session_start();
-	
-	require_once "connection.php";
+header('Content-Type: application/json');
 
-	$sql = "SELECT * FROM tbl_users WHERE user_email = '".$_POST["email"]."' AND user_password = '".sha1($_POST['password'])."'";
-	$result = mysqli_query($conn, $sql);
-	$row = mysqli_fetch_row($result);
+$email    = (string)($_POST['email'] ?? '');
+$password = (string)($_POST['password'] ?? '');
 
-    if($row[6] == "Inactive"){
-      $output = array(
-        'status'        => 'inactive',
-        'error'         => 'This user has been set as inactive. Please contact your administrator.'
-      );
-    } else {
-		if(mysqli_num_rows($result) > 0){
-			$_SESSION['user_id']                 = $row[0];
-			$_SESSION['user_created_by']         = $row[1];
-			$_SESSION['user_last_update_by']     = $row[2];
-			$_SESSION['user_full_name']          = $row[3];
-			$_SESSION['user_email']              = $row[4];
-			$_SESSION['user_gender']             = $row[5];
-			$_SESSION['user_status']             = $row[6];
-			$_SESSION['user_role']               = $row[7];
-			$_SESSION['user_created_at']         = $row[8];
-			$_SESSION['user_updated_at']         = $row[9];
+// Einfache Bremse gegen Brute-Force (pro Session)
+$_SESSION['login_fail'] = $_SESSION['login_fail'] ?? 0;
+if ($_SESSION['login_fail'] >= 5 && time() - ($_SESSION['login_fail_at'] ?? 0) < 60) {
+  echo json_encode(['status' => 'error', 'error' => 'Too many attempts. Please wait a minute.']);
+  exit;
+}
 
-			$output = array(
-			'status'        => 'success'
-			);
-		} else {
-			$output = array(
-				'status'        => 'error',
-				'error'         => 'Incorrect email or password.'
-			);
-		}
-	}
-  
-	echo json_encode($output);
+$user = q_one($conn, "SELECT * FROM tbl_users WHERE user_email = ?", "s", [$email]);
+$rehash = false;
 
-?>
+if ($user && pw_verify($password, $user['user_password'], $rehash)) {
+  if ($user['user_status'] === 'Inactive') {
+    echo json_encode(['status' => 'inactive', 'error' => 'This user has been set as inactive. Please contact your administrator.']);
+    exit;
+  }
+  if ($rehash) {
+    q_ok($conn, "UPDATE tbl_users SET user_password = ? WHERE user_id = ?", "si", [pw_hash($password), $user['user_id']]);
+  }
+  session_regenerate_id(true);
+  $_SESSION['login_fail'] = 0;
+  foreach (['user_id','user_created_by','user_last_update_by','user_full_name','user_email','user_gender','user_status','user_role','user_created_at','user_updated_at'] as $k) {
+    $_SESSION[$k] = $user[$k];
+  }
+  csrf_token();
+  echo json_encode(['status' => 'success']);
+} else {
+  $_SESSION['login_fail']++;
+  $_SESSION['login_fail_at'] = time();
+  echo json_encode(['status' => 'error', 'error' => 'Incorrect email or password.']);
+}
