@@ -4,12 +4,11 @@ require_once "connection.php";
 
 header('Content-Type: application/json');
 
-$email    = (string)($_POST['email'] ?? '');
-$password = (string)($_POST['password'] ?? '');
+$email    = post_str('email');
+$password = post_str('password');
 
-// Einfache Bremse gegen Brute-Force (pro Session)
-$_SESSION['login_fail'] = $_SESSION['login_fail'] ?? 0;
-if ($_SESSION['login_fail'] >= 5 && time() - ($_SESSION['login_fail_at'] ?? 0) < 60) {
+// Bremse gegen Brute-Force: pro IP und pro IP+E-Mail, in der Datenbank (nicht per neuer Session umgehbar)
+if (throttle_blocked($conn, $email)) {
   echo json_encode(['status' => 'error', 'error' => 'Too many attempts. Please wait a minute.']);
   exit;
 }
@@ -17,7 +16,10 @@ if ($_SESSION['login_fail'] >= 5 && time() - ($_SESSION['login_fail_at'] ?? 0) <
 $user = q_one($conn, "SELECT * FROM tbl_users WHERE user_email = ?", "s", [$email]);
 $rehash = false;
 
-if ($user && pw_verify($password, $user['user_password'], $rehash)) {
+// Bei unbekannter E-Mail trotzdem einen Hash prüfen (gleiche Antwortzeit, kein Konto-Orakel)
+$stored = $user['user_password'] ?? '$2y$10$usesomesillystringforsaleeIG1v0pzYQNRlq4bDq0cq4aTNmG4yK';
+
+if (pw_verify($password, $stored, $rehash) && $user) {
   if ($user['user_status'] === 'Inactive') {
     echo json_encode(['status' => 'inactive', 'error' => 'This user has been set as inactive. Please contact your administrator.']);
     exit;
@@ -26,14 +28,13 @@ if ($user && pw_verify($password, $user['user_password'], $rehash)) {
     q_ok($conn, "UPDATE tbl_users SET user_password = ? WHERE user_id = ?", "si", [pw_hash($password), $user['user_id']]);
   }
   session_regenerate_id(true);
-  $_SESSION['login_fail'] = 0;
+  throttle_reset($conn, $email);
   foreach (['user_id','user_created_by','user_last_update_by','user_full_name','user_email','user_gender','user_status','user_role','user_created_at','user_updated_at'] as $k) {
     $_SESSION[$k] = $user[$k];
   }
   csrf_token();
   echo json_encode(['status' => 'success']);
 } else {
-  $_SESSION['login_fail']++;
-  $_SESSION['login_fail_at'] = time();
+  throttle_fail($conn, $email);
   echo json_encode(['status' => 'error', 'error' => 'Incorrect email or password.']);
 }

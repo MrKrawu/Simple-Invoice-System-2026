@@ -3,8 +3,18 @@
 
 	require_once 'bootstrap.php';
 	require_once 'connection.php';
-	if (empty($_SESSION['user_id'])) { http_response_code(401); exit('Not logged in.'); }
+	require_api();
 	$order_id = (int)($_GET['order_id'] ?? 0);
+
+	// Rechnung zuerst laden: unbekannte ID -> 404, bevor ein PDF aufgebaut wird
+	$head = q_one($conn, "SELECT order_id, order_receiver_name, order_receiver_address, order_created_at FROM tbl_orders WHERE order_id = ?", "i", [$order_id]);
+	if (!$head) { http_response_code(404); exit('Invoice not found.'); }
+
+	// FPDF-Standardschriften erwarten Windows-1252, die Datenbank liefert UTF-8
+	function pdf_txt($s) {
+		$r = @iconv('UTF-8', 'windows-1252//TRANSLIT//IGNORE', (string)$s);
+		return $r === false ? '' : $r;
+	}
 
 	class PDF extends FPDF {
 		function Header(){
@@ -34,12 +44,12 @@
 			$this->SetFont('Arial','',12);
 
 			$this->Cell(30	,5,'Customer: ',0,0);
-			$this->Cell(95	,5,$row['order_receiver_name'],0,0);
+			$this->Cell(95	,5,pdf_txt($row['order_receiver_name']),0,0);
 			$this->Cell(25	,5,'Date:',0,0);
 			$this->Cell(34	,5,$row['order_created_at'],0,1);
 
 			$this->Cell(30	,5,'Address:',0,0);
-			$this->Cell(95	,5,$row['order_receiver_address'],0,0);
+			$this->Cell(95	,5,pdf_txt($row['order_receiver_address']),0,0);
 			$this->Cell(25	,5,'Invoice #:',0,0);
 			$this->Cell(34	,5,$row['order_id'],0,1);
 
@@ -78,6 +88,7 @@
 
 	foreach($items as $data){
 		$data = array_values($data);
+		$data[0] = pdf_txt($data[0]);
 
 		$cellWidth = 55;
 		$cellHeight = 5;
@@ -147,7 +158,7 @@
 	$cellWidth = 190;
 	$cellHeight = 5;
 
-	$pdf->MultiCell($cellWidth,$cellHeight,$row['order_note'],0);
+	$pdf->MultiCell($cellWidth,$cellHeight,pdf_txt($row['order_note']),0);
 
 	if(isset($_GET["output"])){
 		$pdf->Output('D','Invoice.pdf');

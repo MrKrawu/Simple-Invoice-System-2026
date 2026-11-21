@@ -149,3 +149,10 @@ INSERT INTO `invoice_order_item` (`order_item_id`, `order_id`, `item_name`, `ord
 (63, 13, 'POLO BLACK #M', 1, '240.00', '43.20', '240.00', '283.20'),
 (64, 13, 'POLO FOXIN 50 NAVY', 1, '248.00', '44.64', '248.00', '292.64'),
 (65, 13, 'POLO FOXIN 50 RED  # M', 1, '248.00', '44.64', '248.00', '292.64');
+
+-- Login-Bremse (pro IP / IP+E-Mail)
+CREATE TABLE IF NOT EXISTS `login_attempts` (
+  `k` char(64) NOT NULL PRIMARY KEY,
+  `fails` int(11) NOT NULL,
+  `last_at` int(11) NOT NULL
+);

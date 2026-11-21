@@ -1,6 +1,7 @@
 <?php
-  include('include/header.php');
+  require_once 'bootstrap.php';
   require_page(true);
+  include('include/header.php');
 ?>
 
 <!-- Page Content -->

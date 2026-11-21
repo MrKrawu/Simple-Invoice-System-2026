@@ -18,7 +18,7 @@ if ($action == "profile_fetch") {
 
 if ($action == "update_profile") {
   $gender = in_array($_POST['gender'] ?? '', ['Male', 'Female'], true) ? $_POST['gender'] : null;
-  $name = trim((string)($_POST['full_name'] ?? ''));
+  $name = trim(post_str('full_name'));
   if ($gender === null || $name === '') json_fail(400, 'Invalid input.');
   if (q_ok($conn, "UPDATE tbl_users SET user_full_name = ?, user_gender = ? WHERE user_id = ?", "ssi", [$name, $gender, $uid])) {
     $_SESSION['user_full_name'] = $name;
@@ -30,14 +30,14 @@ if ($action == "update_profile") {
 
 if ($action == "update_password") {
   $user = q_one($conn, "SELECT user_password FROM tbl_users WHERE user_id = ?", "i", [$uid]);
-  $new = (string)($_POST['new_password'] ?? '');
-  if ($user && pw_verify((string)($_POST['current_password'] ?? ''), $user['user_password']) && strlen($new) >= 8) {
+  $new = post_str('new_password');
+  if ($user && pw_verify(post_str('current_password'), $user['user_password']) && strlen($new) >= 8) {
     if (q_ok($conn, "UPDATE tbl_users SET user_password = ? WHERE user_id = ?", "si", [pw_hash($new), $uid])) {
       echo json_encode(['status' => 'success', 'message' => ' Password updated successfully.']);
     } else {
       json_fail(500, 'Update failed.');
     }
   } else {
-    echo json_encode(['error' => 'true']);
+    echo json_encode(['error' => 'true', 'message' => 'Current password is wrong or the new password is shorter than 8 characters.']);
   }
 }

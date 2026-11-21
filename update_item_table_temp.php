@@ -1,6 +1,6 @@
 <?php
 	require_once 'bootstrap.php';
-	if (empty($_SESSION['user_id'])) { http_response_code(401); exit; }
+	require_api();
 ?>
 
 	<table class="table table-bordered table-hover">
@@ -32,10 +32,10 @@
 				<td><?php echo $i+1; ?></td>
 				<td><?php echo h($row[0] ?? '') ?></td>
 				<td><?php echo h($row[1] ?? '') ?></td>
-				<td><?php echo h($row[2] ?? '') ?></td>
-				<td><?php echo h($row[3] ?? '') ?></td>
-				<td><?php echo h($row[4] ?? '') ?></td>
-				<td><?php echo h($row[5] ?? '') ?></td>
+				<td><?php echo h(money($row[2] ?? 0)) ?></td>
+				<td><?php echo h(money($row[3] ?? 0)) ?></td>
+				<td><?php echo h(money($row[4] ?? 0)) ?></td>
+				<td><?php echo h(money($row[5] ?? 0)) ?></td>
 				<td width="5%">
 					<span class="btn btn-danger btn-xs" onclick="deleteItem('<?php echo $i; ?>');">
 						<i class="fas fa-times"></i>
@@ -44,23 +44,13 @@
 			</tr>
 
 			<?php
-			$sub_total = $sub_total + $row[4];
-			$tax_amount = $tax_amount + $row[3];
-			$total = $total + $row[5];
 			$i++;
 
-			$_SESSION['update_sub_total']=$sub_total;
-			$_SESSION['update_tax_amount']=$tax_amount;
-			$_SESSION['update_total']=$total;
 
 		}
 		endif;
 		
-		if ($i == 0){
-			$_SESSION['update_sub_total'] = 0.00;
-			$_SESSION['update_tax_amount'] = 0.00;
-			$_SESSION['update_total'] = 0.00;
-		}
+		[$sub_total, $tax_amount, $total] = item_totals($_SESSION['update_item_table_temp'] ?? []);
 		?>
 	</table>
 
@@ -77,21 +67,21 @@
 								<th class="text-right">Sub Total
 								</th>
 								<td class="text-center">
-									<?php echo $sub_total; ?>
+									<?php echo money($sub_total); ?>
 								</td>
 							</tr>
 							<tr>
 								<th class="text-right">Tax Total
 								</th>
 								<td class="text-center">
-									<?php echo $tax_amount; ?>
+									<?php echo money($tax_amount); ?>
 								</td>
 							</tr>
 							<tr>
 								<th class="text-right">Grand Total
 								</th>
 								<td class="text-center">
-									<?php echo $total; ?>
+									<?php echo money($total); ?>
 								</td>
 							</tr>
 						</tbody>

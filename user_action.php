@@ -51,13 +51,13 @@ if ($action == "user_fetch") {
 }
 
 if ($action == "add_user") {
-  $name = (string)($_POST['full_name'] ?? ''); $email = (string)($_POST['email'] ?? '');
-  $gender = (string)($_POST['gender'] ?? ''); $status = (string)($_POST['status'] ?? ''); $role = (string)($_POST['role'] ?? '');
-  $pw = (string)($_POST['password'] ?? '');
+  $name = post_str('full_name'); $email = post_str('email');
+  $gender = post_str('gender'); $status = post_str('status'); $role = post_str('role');
+  $pw = post_str('password');
   if (!valid_user_input($name, $email, $gender, $status, $role) || strlen($pw) < 8) json_fail(400, 'Invalid input.');
 
   if (q_one($conn, "SELECT user_id FROM tbl_users WHERE user_email = ?", "s", [$email])) {
-    echo json_encode(['status' => 'error']);
+    echo json_encode(['status' => 'error', 'message' => 'This email address is already in use.']);
   } elseif (q_ok($conn, "INSERT INTO tbl_users (user_created_by, user_full_name, user_email, user_gender, user_status, user_role, user_password, user_created_at) VALUES (?,?,?,?,?,?,?,NOW())",
       "issssss", [(int)$_SESSION['user_id'], trim($name), $email, $gender, $status, $role, pw_hash($pw)])) {
     echo json_encode(['status' => 'success', 'message' => ' New user has been successfully added.']);
@@ -82,12 +82,13 @@ if ($action == "single_fetch") {
 
 if ($action == "update_user_profile") {
   $id = (int)($_POST['update_profile_id'] ?? 0);
-  $name = (string)($_POST['update_full_name'] ?? ''); $email = (string)($_POST['update_email'] ?? '');
-  $gender = (string)($_POST['update_gender'] ?? ''); $status = (string)($_POST['update_status'] ?? ''); $role = (string)($_POST['update_role'] ?? '');
+  $name = post_str('update_full_name'); $email = post_str('update_email');
+  $gender = post_str('update_gender'); $status = post_str('update_status'); $role = post_str('update_role');
   if (!valid_user_input($name, $email, $gender, $status, $role)) json_fail(400, 'Invalid input.');
+  if ($id === (int)$_SESSION['user_id'] && ($role !== 'Admin' || $status !== 'Active')) json_fail(400, 'You cannot demote or deactivate your own account.');
 
   if (q_one($conn, "SELECT user_id FROM tbl_users WHERE user_email = ? AND user_id != ?", "si", [$email, $id])) {
-    echo json_encode(['status' => 'error']);
+    echo json_encode(['status' => 'error', 'message' => 'This email address is already in use.']);
   } elseif (q_ok($conn, "UPDATE tbl_users SET user_last_update_by = ?, user_full_name = ?, user_email = ?, user_gender = ?, user_role = ?, user_status = ?, user_updated_at = NOW() WHERE user_id = ?",
       "isssssi", [(int)$_SESSION['user_id'], trim($name), $email, $gender, $role, $status, $id])) {
     echo json_encode(['status' => 'success', 'message' => ' User profile has been successfully updated.']);
@@ -97,10 +98,12 @@ if ($action == "update_user_profile") {
 }
 
 if ($action == "update_user_password") {
-  $pw = (string)($_POST['update_password'] ?? '');
+  $pw = post_str('update_password');
   if (strlen($pw) < 8) json_fail(400, 'Invalid input.');
-  if (q_ok($conn, "UPDATE tbl_users SET user_last_update_by = ?, user_password = ?, user_updated_at = NOW() WHERE user_id = ?",
-      "isi", [(int)$_SESSION['user_id'], pw_hash($pw), (int)($_POST['update_password_id'] ?? 0)])) {
+  $st = q($conn, "UPDATE tbl_users SET user_last_update_by = ?, user_password = ?, user_updated_at = NOW() WHERE user_id = ?",
+      "isi", [(int)$_SESSION['user_id'], pw_hash($pw), (int)($_POST['update_password_id'] ?? 0)]);
+  if ($st && mysqli_stmt_affected_rows($st) < 1) json_fail(404, 'User not found.');
+  if ($st) {
     echo json_encode(['status' => 'success', 'message' => ' User password has been successfully updated.']);
   } else {
     json_fail(500, 'Update failed.');
