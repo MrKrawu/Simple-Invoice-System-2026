@@ -43,8 +43,8 @@
 
 ```bash
 # 1. Get the code
-git clone https://github.com/<your-user>/Simple-Invoice-System.git
-cd Simple-Invoice-System
+git clone https://github.com/MrKrawu/Simple-Invoice-System-2026.git
+cd Simple-Invoice-System-2026
 
 # 2. Create the database and demo data
 mysql -u root -p < database/egm_simple_invoice.sql
